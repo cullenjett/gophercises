@@ -1,30 +1,50 @@
 package main
 
 import (
+	"encoding/xml"
 	"flag"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 
 	"golang.org/x/net/html"
 )
 
+const xmlns = "http://www.sitemaps.org/schemas/sitemap/0.9"
+
+type urlset struct {
+	URLs  []loc  `xml:"url"`
+	Xmlns string `xml:"xmlns,attr"`
+}
+
+type loc struct {
+	Value string `xml:"loc"`
+}
+
 func main() {
 	urlFlag := flag.String("url", "https://gophercises.com", "the root URL used to build a sitemap")
-	maxDepth := flag.Int("depth", 3, "maximum number of links deep to traverse")
+	maxDepth := flag.Int("depth", 10, "maximum number of links deep to traverse")
 	flag.Parse()
 
 	pages := bfs(*urlFlag, *maxDepth)
+
+	toXML := urlset{
+		Xmlns: xmlns,
+	}
 	for _, page := range pages {
-		fmt.Println(page)
+		toXML.URLs = append(toXML.URLs, loc{page})
 	}
 
-	// links := getLinks(*urlFlag)
-	// for _, link := range links {
-	// 	fmt.Println(link)
-	// }
+	enc := xml.NewEncoder(os.Stdout)
+	enc.Indent("", "  ")
+	fmt.Print(xml.Header)
+	if err := enc.Encode(toXML); err != nil {
+		panic(err)
+	}
+
 }
 
 func bfs(urlString string, maxDepth int) []string {
