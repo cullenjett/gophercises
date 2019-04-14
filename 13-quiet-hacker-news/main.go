@@ -32,7 +32,7 @@ func main() {
 func handler(numStories int, tpl *template.Template) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
-		stories, err := getTopStories(numStories)
+		stories, err := getCachedStories(numStories)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -49,6 +49,27 @@ func handler(numStories int, tpl *template.Template) http.HandlerFunc {
 			return
 		}
 	})
+}
+
+var (
+	cache           []item
+	cacheExpiration time.Time
+)
+
+func getCachedStories(numStories int) ([]item, error) {
+	if cacheExpiration.Sub(time.Now()) > 0 {
+		return cache, nil
+	}
+
+	stories, err := getTopStories(numStories)
+	if err != nil {
+		return nil, err
+	}
+
+	cache = stories
+	cacheExpiration = time.Now().Add(5 * time.Second)
+
+	return stories, nil
 }
 
 func getTopStories(numStories int) ([]item, error) {
